@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Journal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Daily Journal</h1>
+
+    <section class="editor">
+      <label for="entryInput" class="label">New Entry</label>
+      <textarea id="entryInput" name="entry" rows="8" placeholder="Write your thoughts..."></textarea>
+      <button id="saveBtn" type="button">Save Entry</button>
+    </section>
+
+    <section class="entries">
+      <h2>Saved Entries</h2>
+      <div id="entriesList" class="entries-list" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'journalEntries';
+    function getEntries() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function setEntries(entries) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+    function renderEntries() {
+      const list = document.getElementById('entriesList');
+      const entries = getEntries().slice().sort((a, b) => b.createdAt - a.createdAt);
+      list.innerHTML = '';
+      if (entries.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'empty';
+        empty.textContent = 'No entries yet.';
+        list.appendChild(empty);
+        return;
+      }
+      for (const entry of entries) {
+        const item = document.createElement('article');
+        item.className = 'entry';
+        const meta = document.createElement('div');
+        meta.className = 'entry-meta';
+        const date = new Date(entry.createdAt);
+        const timeEl = document.createElement('time');
+        timeEl.dateTime = date.toISOString();
+        timeEl.textContent = date.toLocaleString();
+        meta.appendChild(timeEl);
+        const content = document.createElement('p');
+        content.className = 'entry-content';
+        content.textContent = entry.content;
+        const actions = document.createElement('div');
+        actions.className = 'entry-actions';
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => startEdit(item, entry));
+        actions.appendChild(editBtn);
+        item.appendChild(meta);
+        item.appendChild(content);
+        item.appendChild(actions);
+        list.appendChild(item);
+      }
+    }
+    function saveEntry() {
+      const input = document.getElementById('entryInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const entries = getEntries();
+      const now = Date.now();
+      entries.push({ id: now, content: text, createdAt: now });
+      setEntries(entries);
+      input.value = '';
+      renderEntries();
+    }
+    function updateEntry(id, newContent) {
+      const entries = getEntries();
+      const idx = entries.findIndex(e => e.id === id);
+      if (idx !== -1) {
+        entries[idx].content = newContent;
+        entries[idx].updatedAt = Date.now();
+        setEntries(entries);
+      }
+      renderEntries();
+    }
+    function startEdit(item, entry) {
+      const oldP = item.querySelector('.entry-content');
+      if (!oldP) return;
+      const original = oldP.textContent || '';
+      const textarea = document.createElement('textarea');
+      textarea.value = original;
+      textarea.rows = Math.max(3, original.split('\n').length);
+      textarea.className = 'entry-edit';
+      item.replaceChild(textarea, oldP);
+      const actions = item.querySelector('.entry-actions');
+      if (actions) {
+        actions.innerHTML = '';
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.textContent = 'Save';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        saveBtn.addEventListener('click', () => {
+          const newText = textarea.value.trim();
+          if (!newText) { renderEntries(); return; }
+          updateEntry(entry.id, newText);
+        });
+        cancelBtn.addEventListener('click', () => {
+          renderEntries();
+        });
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+      }
+      textarea.focus();
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('saveBtn').addEventListener('click', saveEntry);
+      renderEntries();
+    });
+  </script>
+</body>
+</html>
